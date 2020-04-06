@@ -1,0 +1,2 @@
+rootProject.name='AmbientProjectTake2'
+include ':app'
