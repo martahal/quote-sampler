@@ -119,6 +119,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
+
+
     /*
     Help method to set and get value of global variable imageBitmap so that can be retrieved
     */
