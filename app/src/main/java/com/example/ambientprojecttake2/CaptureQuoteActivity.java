@@ -4,11 +4,13 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.annotation.SuppressLint;
+import android.content.pm.PackageManager;
 import android.graphics.Paint;
 import android.media.Image;
 import android.nfc.Tag;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.Rational;
 import android.util.Size;
 import android.widget.Toast;
 
@@ -21,6 +23,7 @@ import com.google.firebase.ml.vision.common.FirebaseVisionImageMetadata;
 import com.google.firebase.ml.vision.text.FirebaseVisionText;
 import com.google.firebase.ml.vision.text.FirebaseVisionTextRecognizer;
 
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,39 +37,64 @@ import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
 
+
+
 public class CaptureQuoteActivity extends AppCompatActivity {
 
-    //private int lensFacing = CameraSelector.LENS_FACING_BACK;
-    private ImageCapture imageCapture;
+    private int REQUEST_CODE_PERMISSIONS = 333;
+    private String[] REQUIRED_PERMISSIONS = new String[]{"android.permission.CAMERA"};
 
+    private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
+
+    private ImageCapture imageCapture;
+    private PreviewView previewView;
+    private GraphicOverlay mGraphicOverlay;
+
+    private ExecutorService executor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_capture_quote);
+        cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
-        PreviewView previewView = findViewById(R.id.preview_view);
+        previewView = findViewById(R.id.view_finder);
+        mGraphicOverlay = findViewById(R.id.graphic_overlay);
 
-        ListenableFuture cameraProviderFuture =
-                ProcessCameraProvider.getInstance(this);
+        if (allPermissionGranted()) {
+            startCamera();
+        } else {
+            ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS);
+        }
+    }
 
-        ExecutorService executor = Executors.newSingleThreadExecutor();
+
+    private void startCamera(){
+
+        /*
+        int aspectRatio = previewView.getWidth() / previewView.getHeight();
+        Size resolution =  new Size(previewView.getWidth(), previewView.getHeight());
+        */
         cameraProviderFuture.addListener(() -> {
             try {
                 // Camera provider is now guaranteed to be available
-                ProcessCameraProvider cameraProvider = (ProcessCameraProvider) cameraProviderFuture.get();
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
 
                 // Set up the view finder use case to display camera preview
-                Preview preview = new Preview.Builder().build();
+                Preview preview = new Preview.Builder()
+                        .build();
 
                 // Set up the capture use case to allow users to take photos
                 imageCapture = new ImageCapture.Builder()
                         .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                         .setTargetRotation(previewView.getDisplay().getRotation())
                         .build();
+
+
 
                 // Choose the camera by requiring a lens facing
                 CameraSelector cameraSelector = new CameraSelector.Builder()
@@ -119,6 +147,28 @@ public class CaptureQuoteActivity extends AppCompatActivity {
         }, ContextCompat.getMainExecutor(this));
     }
 
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+
+        if(requestCode == REQUEST_CODE_PERMISSIONS){
+            if(allPermissionGranted()){
+                startCamera();
+            } else{
+                Toast.makeText(this, "Permissions not granted by the user.", Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        }
+    }
+
+    private boolean allPermissionGranted() {
+        for(String permission : REQUIRED_PERMISSIONS){
+            if(ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED){
+                return false;
+            }
+        }
+        return true;
+    }
+
     private int degreesToFirebaseRotation(int degrees) {
         switch (degrees){
             case 0:
@@ -137,40 +187,66 @@ public class CaptureQuoteActivity extends AppCompatActivity {
 
 
     private void detectTextFromImage(FirebaseVisionImage firebaseImage) {
-        FirebaseVisionTextRecognizer firebaseVisionTextRecognizer =
+        FirebaseVisionTextRecognizer textRecognizer =
                 FirebaseVision.getInstance().getOnDeviceTextRecognizer();
-        firebaseVisionTextRecognizer.processImage(firebaseImage).addOnSuccessListener(new OnSuccessListener<FirebaseVisionText>() {
-            @Override
-            public void onSuccess(FirebaseVisionText firebaseVisionText) {
-                Toast.makeText(CaptureQuoteActivity.this, "Found text in image!", Toast.LENGTH_SHORT).show();
-                //TODO: implement functionality to highlight text in image. Almost like in the codelab
-            }
-        }).addOnFailureListener(new OnFailureListener() {
-            @Override
-            public void onFailure(@NonNull Exception e) {
-                Toast.makeText(CaptureQuoteActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-
-                Log.d("Error: ", e.getMessage());
-            }
-        });
+        textRecognizer.processImage(firebaseImage)
+                .addOnSuccessListener(new OnSuccessListener<FirebaseVisionText>() {
+                    @Override
+                    public void onSuccess(FirebaseVisionText firebaseVisionText) {
+                        processTextRecognitionResult(firebaseVisionText);
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        e.printStackTrace();
+                    }
+                });
     }
 
-    /*public void onClick(){
-        imageCapture.takePicture(new ImageCapture.OnImageCapturedCallback(){
-            @Override
-            public void onCaptureSuccess(ImageProxy imageProxy){
-                Log.d("imageCapture", "Photo capture succeeded");
-                //TODO Send picture to mlKit text recognition after analysis
-                imageProxy.close();
+    private void processTextRecognitionResult(FirebaseVisionText firebaseVisionText) {
+        List<FirebaseVisionText.TextBlock> blocks = firebaseVisionText.getTextBlocks();
+        if (blocks.size() ==0 ){
+            Toast.makeText(this, "No text found", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // TODO Research graphic overlay class in codelab
+        mGraphicOverlay.clear();
+        for (int i = 0; i < blocks.size(); i++){
+            List<FirebaseVisionText.Line> lines = blocks.get(i).getLines();
+            for (int j = 0; j < lines.size(); j++){
+                //TODO change textGraphic class to higlight lines of text without rendering the text
+                GraphicOverlay.Graphic textGraphic = new TextGraphic(mGraphicOverlay, lines.get(j));
+                mGraphicOverlay.add(textGraphic);
             }
-            @Override
-            public void onError(ImageCaptureException exception){
-                Toast.makeText(CaptureQuoteActivity.this, "Unable to take picture", Toast.LENGTH_SHORT).show();
-                Log.d("imageCapture", "Photo capture failed", exception);
-                exception.printStackTrace();
-            }
-        });
-    }*/
 
+        }
+
+
+    }
+    /*
+
+
+    public void onClick(){
+        ImageCapture.OnImageCapturedCallback callback =
+                new ImageCapture.OnImageCapturedCallback() {
+                    @Override
+                    public void onCaptureSuccess(@NonNull ImageProxy image) {
+                        super.onCaptureSuccess(image);
+                        Log.d("imageCapture", "Photo capture succeeded");
+                        //TODO Send picture to mlKit text recognition after analysis
+                        image.close();
+                    }
+                    @Override
+                    public void onError(ImageCaptureException exception){
+                        Toast.makeText(CaptureQuoteActivity.this, "Unable to take picture", Toast.LENGTH_SHORT).show();
+                        Log.d("imageCapture", "Photo capture failed", exception);
+                        exception.printStackTrace();
+                    }
+
+                };
+        imageCapture.takePicture(executor, callback);
+    }
+*/
 
 }
