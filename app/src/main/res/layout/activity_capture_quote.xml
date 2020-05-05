@@ -19,7 +19,10 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        />
+        >
+
+
+    </androidx.camera.view.PreviewView>
         <com.example.ambientprojecttake2.GraphicOverlay
             android:id="@+id/graphic_overlay"
             android:layout_width="fill_parent"
@@ -29,4 +32,12 @@
             app:layout_constraintLeft_toLeftOf="@id/view_finder"
             app:layout_constraintRight_toRightOf="@id/view_finder" />
     </FrameLayout>
+    <ImageButton
+        android:id="@+id/imageButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:srcCompat="@android:drawable/ic_menu_camera" />
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -62,24 +62,4 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-
-
-
-    /*
-    This method probably need modification for the text to be shown in context with the usage of the app.
-
-    private void displayTextFromImage(FirebaseVisionText firebaseVisionText) {
-        List<FirebaseVisionText.TextBlock> blockList = firebaseVisionText.getTextBlocks();
-        if (blockList.size() == 0){
-            Toast.makeText(this, "No text found in image", Toast.LENGTH_SHORT).show();
-        }
-        else{
-            for (FirebaseVisionText.TextBlock block : blockList){
-                String text = block.getText();
-                textView.setText(text);
-            }
-        }
-    }
-*/
-
 }
