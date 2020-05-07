@@ -10,6 +10,8 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.ImageView;
 
+import java.io.File;
+
 public class MarkQuoteActivity extends AppCompatActivity {
 
     private ImageView imageView;
@@ -24,5 +26,8 @@ public class MarkQuoteActivity extends AppCompatActivity {
         Uri imageUri = Uri.parse(imagePath);
         imageView.setImageURI(imageUri);
         Log.d("MarkQuoteActivity", "Activity created with image saved at: " + imagePath);
+    }
+    private void doTextAnalysis(){
+
     }
 }

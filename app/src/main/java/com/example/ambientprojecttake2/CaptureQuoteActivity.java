@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.annotation.SuppressLint;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -15,6 +16,7 @@ import android.net.Uri;
 import android.nfc.Tag;
 import android.os.Bundle;
 import android.os.Parcelable;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.util.Rational;
 import android.util.Size;
@@ -124,14 +126,32 @@ public class CaptureQuoteActivity extends AppCompatActivity {
                         Log.d("imageCapture", "Attempting to capture image");
                         ImageCapture.OutputFileOptions imageFile;
                         try{
-                            imageFile = new ImageCapture.OutputFileOptions.Builder(
-                                    File.createTempFile(
-                                            "capturedImage",
-                                            null,
-                                            context.getCacheDir())).build();
+                            ContentValues contentValues = new ContentValues();
+                            contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, "NEW_IMAGE");
+                            contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "image/jpg");
+                            ImageCapture.OutputFileOptions options = new ImageCapture.OutputFileOptions.Builder(
+                                    getContentResolver(),
+                                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                                    contentValues).build();
                             Log.d("imageCapture", "managed to build a temp file for image");
-                            imageCapture.takePicture(imageFile, executor, imageSavedCallback);
-                        }catch (IOException e){
+                            imageCapture.takePicture(options, executor, new ImageCapture.OnImageSavedCallback() {
+                                @Override
+                                public void onImageSaved(@NonNull ImageCapture.OutputFileResults imageFileInfo) {
+
+                                    //passing image to new activiy by sending the directorty of the image
+
+                                    Log.d("imageCapture", "Image saved to: " + imageFileInfo.getSavedUri());
+                                    openMarkQuoteActivity(imageFileInfo.getSavedUri());
+                                }
+
+                                @Override
+                                public void onError(ImageCaptureException exception) {
+                                    //Toast.makeText(CaptureQuoteActivity.this, "Unable to take picture", Toast.LENGTH_SHORT).show();
+                                    Log.d("imageCapture", "Photo capture failed", exception);
+                                    exception.printStackTrace();
+                                }
+                            });
+                        }catch (Exception e){
                             e.printStackTrace();
                         }
 
@@ -206,66 +226,6 @@ public class CaptureQuoteActivity extends AppCompatActivity {
         return true;
     }
 
-    ImageCapture.OnImageSavedCallback imageSavedCallback =
-            new ImageCapture.OnImageSavedCallback() {
-                @Override
-                public void onImageSaved(@NonNull ImageCapture.OutputFileResults imageFileInfo) {
-                    if (imageFileInfo.getSavedUri() == null) {
-                        return;
-                    }
-                    //TODO pass image to new activiy
-                    Uri imageURI = imageFileInfo.getSavedUri();
-                    Log.d("imageCapture", "Image saved to: " + imageURI.toString());
-                    openMarkQuoteActivity(imageURI);
-                }
-
-                @Override
-                public void onError(ImageCaptureException exception) {
-                    //Toast.makeText(CaptureQuoteActivity.this, "Unable to take picture", Toast.LENGTH_SHORT).show();
-                    Log.d("imageCapture", "Photo capture failed", exception);
-                    exception.printStackTrace();
-                }
-            };
-
-
- /*   ImageCapture.OnImageCapturedCallback callback =
-                new ImageCapture.OnImageCapturedCallback() {
-                    @SuppressLint("UnsafeExperimentalUsageError")
-                    @Override
-                    public void onCaptureSuccess(@NonNull ImageProxy image) {
-                        super.onCaptureSuccess(image);
-                        Log.d("imageCapture", "Photo capture succeeded");
-                        Toast.makeText(CaptureQuoteActivity.this, "Picture taken!", Toast.LENGTH_SHORT).show();
-                        //Analyzing the captured image before opening it in new activity
-                        if (image == null || image.getImage() == null){
-                            return;
-                        }
-                        int rotationDegrees = image.getImageInfo().getRotationDegrees();
-                        Image mediaImage = image.getImage();
-                        int rotation = degreesToFirebaseRotation(rotationDegrees);
-                        FirebaseVisionImage firebaseImage = FirebaseVisionImage.fromMediaImage(mediaImage, rotation);
-
-                        detectTextFromImage(firebaseImage);
-                        //
-
-
-                        image.close();
-                    }
-                    @Override
-                    public void onError(ImageCaptureException exception){
-                        Toast.makeText(CaptureQuoteActivity.this, "Unable to take picture", Toast.LENGTH_SHORT).show();
-                        Log.d("imageCapture", "Photo capture failed", exception);
-                        exception.printStackTrace();
-                    }
-
-                };*/
-
-
-
-
-
-
-
     private int degreesToFirebaseRotation(int degrees) {
         switch (degrees){
             case 0:
@@ -323,7 +283,7 @@ public class CaptureQuoteActivity extends AppCompatActivity {
 
 
     public void openMarkQuoteActivity(Uri imageURI) {
-        //TODO Pass an image (or representation) to new activity for analysis
+        //Passing a URI as intent to new activity for analysis in the new activity
         try {
             Intent intent = new Intent(this, MarkQuoteActivity.class);
             intent.putExtra("imagePath", imageURI.toString());
