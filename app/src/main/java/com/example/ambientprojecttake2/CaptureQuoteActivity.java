@@ -11,6 +11,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Paint;
 import android.media.Image;
+import android.net.Uri;
 import android.nfc.Tag;
 import android.os.Bundle;
 import android.os.Parcelable;
@@ -120,7 +121,20 @@ public class CaptureQuoteActivity extends AppCompatActivity {
                 captureButton.setOnClickListener(new View.OnClickListener(){
                     @Override
                     public void onClick(View view){
-                        imageCapture.takePicture(executor, callback);
+                        Log.d("imageCapture", "Attempting to capture image");
+                        ImageCapture.OutputFileOptions imageFile;
+                        try{
+                            imageFile = new ImageCapture.OutputFileOptions.Builder(
+                                    File.createTempFile(
+                                            "capturedImage",
+                                            null,
+                                            context.getCacheDir())).build();
+                            Log.d("imageCapture", "managed to build a temp file for image");
+                            imageCapture.takePicture(imageFile, executor, imageSavedCallback);
+                        }catch (IOException e){
+                            e.printStackTrace();
+                        }
+
                     }
                 });
 
@@ -192,19 +206,49 @@ public class CaptureQuoteActivity extends AppCompatActivity {
         return true;
     }
 
+    ImageCapture.OnImageSavedCallback imageSavedCallback =
+            new ImageCapture.OnImageSavedCallback() {
+                @Override
+                public void onImageSaved(@NonNull ImageCapture.OutputFileResults imageFileInfo) {
+                    if (imageFileInfo.getSavedUri() == null) {
+                        return;
+                    }
+                    //TODO pass image to new activiy
+                    Uri imageURI = imageFileInfo.getSavedUri();
+                    Log.d("imageCapture", "Image saved to: " + imageURI.toString());
+                    openMarkQuoteActivity(imageURI);
+                }
+
+                @Override
+                public void onError(ImageCaptureException exception) {
+                    //Toast.makeText(CaptureQuoteActivity.this, "Unable to take picture", Toast.LENGTH_SHORT).show();
+                    Log.d("imageCapture", "Photo capture failed", exception);
+                    exception.printStackTrace();
+                }
+            };
 
 
-
-    ImageCapture.OnImageCapturedCallback callback =
+ /*   ImageCapture.OnImageCapturedCallback callback =
                 new ImageCapture.OnImageCapturedCallback() {
+                    @SuppressLint("UnsafeExperimentalUsageError")
                     @Override
                     public void onCaptureSuccess(@NonNull ImageProxy image) {
                         super.onCaptureSuccess(image);
                         Log.d("imageCapture", "Photo capture succeeded");
                         Toast.makeText(CaptureQuoteActivity.this, "Picture taken!", Toast.LENGTH_SHORT).show();
-                        //TODO Show captured image on screen
+                        //Analyzing the captured image before opening it in new activity
+                        if (image == null || image.getImage() == null){
+                            return;
+                        }
+                        int rotationDegrees = image.getImageInfo().getRotationDegrees();
+                        Image mediaImage = image.getImage();
+                        int rotation = degreesToFirebaseRotation(rotationDegrees);
+                        FirebaseVisionImage firebaseImage = FirebaseVisionImage.fromMediaImage(mediaImage, rotation);
 
-                        //TODO Send picture to mlKit text recognition after analysis (done in MarkQuoteActivity)
+                        detectTextFromImage(firebaseImage);
+                        //
+
+
                         image.close();
                     }
                     @Override
@@ -214,7 +258,7 @@ public class CaptureQuoteActivity extends AppCompatActivity {
                         exception.printStackTrace();
                     }
 
-                };
+                };*/
 
 
 
@@ -278,15 +322,15 @@ public class CaptureQuoteActivity extends AppCompatActivity {
     }
 
 
-    public void openMarkQuoteActivity(File imageFile) {
+    public void openMarkQuoteActivity(Uri imageURI) {
         //TODO Pass an image (or representation) to new activity for analysis
-        /*try {
+        try {
             Intent intent = new Intent(this, MarkQuoteActivity.class);
-            intent.putExtra();
+            intent.putExtra("imagePath", imageURI.toString());
             startActivity(intent);
         } catch (Exception e) {
             Log.d("activityFlow", "unable to change activity", e);
             e.printStackTrace();
-        }*/
+        }
     }
 }

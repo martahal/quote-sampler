@@ -5,7 +5,9 @@ import androidx.camera.core.ImageProxy;
 
 import android.content.Intent;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.ImageView;
 
 public class MarkQuoteActivity extends AppCompatActivity {
@@ -18,12 +20,9 @@ public class MarkQuoteActivity extends AppCompatActivity {
         setContentView(R.layout.activity_mark_quote);
         imageView = findViewById(R.id.image_view);
         Intent intent = getIntent();
-        ImageProxy image = (ImageProxy)intent.getSerializableExtra("imageproxy");
-        //Drawable drawable = (Drawable)image.getImage();
-
-    }
-
-    private void displayImage() {
-        //imageView.setImageDrawable();
+        String imagePath = intent.getStringExtra("imagePath");
+        Uri imageUri = Uri.parse(imagePath);
+        imageView.setImageURI(imageUri);
+        Log.d("MarkQuoteActivity", "Activity created with image saved at: " + imagePath);
     }
 }
